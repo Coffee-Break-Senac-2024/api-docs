@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres_docs_api
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_USER: admin_docs
+      POSTGRES_PASSWORD: admin_docs
+      POSTGRES_DB: docs_db
