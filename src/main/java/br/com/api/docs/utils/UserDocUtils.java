@@ -1,23 +1,31 @@
 package br.com.api.docs.utils;
 
 
-import org.springframework.web.multipart.MultipartFile;
+import br.com.api.docs.domain.enums.SignatureType;
+import br.com.api.docs.repositories.UserDocRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.util.UUID;
 
+@Component
+@RequiredArgsConstructor
 public class UserDocUtils {
 
-    public static File convertMultipartFileToFile(MultipartFile file) {
-        File convertedFile = new File(file.getOriginalFilename());
-        try (FileOutputStream fos = new FileOutputStream(convertedFile)){
-            fos.write(file.getBytes());
-        } catch (IOException e) {
-            System.out.println(e.getMessage());
-        }
+    private final UserDocRepository userDocRepository;
 
-        return convertedFile;
+    public int calculateMaxDocs(SignatureType signatureType) {
+        return switch (signatureType) {
+            case MONTHLY -> 10;
+            case QUARTERLY -> 20;
+            case ANNUAL -> 30;
+        };
+    }
+
+    public boolean canUploadMoreDocs(int maxDocs, UUID userId) {
+        long docs = this.userDocRepository.countByUserId(userId);
+        System.out.println(maxDocs);
+        return docs < maxDocs;
     }
 
 }
