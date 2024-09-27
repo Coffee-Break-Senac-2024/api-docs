@@ -10,4 +10,5 @@ import java.util.UUID;
 @Repository
 public interface UserDocRepository extends JpaRepository<UserDoc, UUID> {
     Optional<UserDoc> findByDocumentNameAndUserIdAndCategoryId(String documentName, UUID userId, UUID categoryId);
+    long countByUserId(UUID userId);
 }
