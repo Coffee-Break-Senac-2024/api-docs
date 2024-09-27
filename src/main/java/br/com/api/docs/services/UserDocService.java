@@ -4,13 +4,20 @@ import br.com.api.docs.client.SignatureClient;
 import br.com.api.docs.domain.entities.UserDoc;
 import br.com.api.docs.domain.enums.SignatureType;
 import br.com.api.docs.dto.signature.UserSignatureResponse;
+import br.com.api.docs.dto.userdoc.UserDocDownloadResponseDTO;
 import br.com.api.docs.dto.userdoc.UserDocResponseDTO;
 import br.com.api.docs.exceptions.DocumentsUploadException;
 import br.com.api.docs.exceptions.InputException;
+import br.com.api.docs.exceptions.NotFoundException;
+import br.com.api.docs.mapper.UserDocMapper;
 import br.com.api.docs.repositories.UserDocRepository;
+import br.com.api.docs.utils.UserDocUtils;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.util.IOUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -33,12 +40,16 @@ public class UserDocService {
 
     private final SignatureClient signatureClient;
 
+    private final UserDocMapper userDocMapper;
+
+    private final UserDocUtils userDocUtils;
+
     public UserDocResponseDTO uploadFile(MultipartFile file, UUID categoryId, UUID userId, String documentName, String description) {
         SignatureType signatureType = getSignatureType();
 
-        int maxDocs = calculateMaxDocs(signatureType);
+        int maxDocs = userDocUtils.calculateMaxDocs(signatureType);
 
-        if (canUploadMoreDocs(maxDocs, userId)) {
+        if (userDocUtils.canUploadMoreDocs(maxDocs, userId)) {
             Optional<UserDoc> document = this.userDocRepository.findByDocumentNameAndUserIdAndCategoryId(documentName, userId, categoryId);
 
             if (document.isEmpty()) {
@@ -57,15 +68,7 @@ public class UserDocService {
 
                 UserDoc saved = this.userDocRepository.save(userDoc);
 
-                return UserDocResponseDTO.builder()
-                        .id(saved.getId())
-                        .userId(saved.getUserId())
-                        .categoryId(saved.getCategoryId())
-                        .documentName(saved.getDocumentName())
-                        .documentType(saved.getDocumentType())
-                        .fileUrl(saved.getFileUrl())
-                        .accessUrl(url)
-                        .build();
+                return userDocMapper.mapEntityToUserDocResponse(saved, url);
             }
 
             throw new InputException("Ja existe documento com esse nome");
@@ -87,26 +90,24 @@ public class UserDocService {
         return s3Client.getUrl(bucketName, fileName).toString();
     }
 
-    public SignatureType getSignatureType() {
+    private SignatureType getSignatureType() {
         UserSignatureResponse signature = signatureClient.getSignature();
         System.out.println(signature + ", signature");
         return signature.getSignature();
     }
 
-    private int calculateMaxDocs(SignatureType signatureType) {
-        return switch (signatureType) {
-            case MONTHLY -> 10;
-            case QUARTERLY -> 20;
-            case ANNUAL -> 30;
-        };
+    public UserDocDownloadResponseDTO downloadFile(UUID id) {
+        UserDoc userDoc = this.userDocRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Documento não encontrado"));
 
+        S3Object s3Object = s3Client.getObject(bucketName, userDoc.getFileUrl());
+
+        try (S3ObjectInputStream inputStream = s3Client.getObject(bucketName, userDoc.getFileUrl()).getObjectContent()) {
+            byte[] content = IOUtils.toByteArray(inputStream);
+
+            return userDocMapper.mapToUserDocDownloadResponse(content, userDoc.getDocumentName(), userDoc.getDocumentType());
+        } catch (IOException e) {
+            throw new RuntimeException("Erro ao baixar o arquivo do S3", e);
+        }
     }
-
-    private boolean canUploadMoreDocs(int maxDocs, UUID userId) {
-        long docs = this.userDocRepository.countByUserId(userId);
-        System.out.println(maxDocs);
-        return docs < maxDocs;
-    }
-
-
 }
