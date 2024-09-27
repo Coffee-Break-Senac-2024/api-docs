@@ -1,7 +1,11 @@
 package br.com.api.docs.services;
 
+import br.com.api.docs.client.SignatureClient;
 import br.com.api.docs.domain.entities.UserDoc;
+import br.com.api.docs.domain.enums.SignatureType;
+import br.com.api.docs.dto.signature.UserSignatureResponse;
 import br.com.api.docs.dto.userdoc.UserDocResponseDTO;
+import br.com.api.docs.exceptions.DocumentsUploadException;
 import br.com.api.docs.exceptions.InputException;
 import br.com.api.docs.repositories.UserDocRepository;
 import com.amazonaws.services.s3.AmazonS3;
@@ -27,37 +31,46 @@ public class UserDocService {
 
     private final UserDocRepository userDocRepository;
 
+    private final SignatureClient signatureClient;
+
     public UserDocResponseDTO uploadFile(MultipartFile file, UUID categoryId, UUID userId, String documentName, String description) {
-        Optional<UserDoc> document = this.userDocRepository.findByDocumentNameAndUserIdAndCategoryId(documentName, userId, categoryId);
+        SignatureType signatureType = getSignatureType();
 
-        if (document.isEmpty()) {
-            UserDoc userDoc = new UserDoc();
-            userDoc.setUserId(userId);
-            userDoc.setCategoryId(categoryId);
-            userDoc.setDocumentName(documentName);
-            userDoc.setDescription(description);
-            userDoc.setDocumentType(file.getContentType());
+        int maxDocs = calculateMaxDocs(signatureType);
 
-            String fileName = userId + "/" +file.getOriginalFilename();
+        if (canUploadMoreDocs(maxDocs, userId)) {
+            Optional<UserDoc> document = this.userDocRepository.findByDocumentNameAndUserIdAndCategoryId(documentName, userId, categoryId);
 
-            userDoc.setFileUrl(fileName);
+            if (document.isEmpty()) {
+                UserDoc userDoc = new UserDoc();
+                userDoc.setUserId(userId);
+                userDoc.setCategoryId(categoryId);
+                userDoc.setDocumentName(documentName);
+                userDoc.setDescription(description);
+                userDoc.setDocumentType(file.getContentType());
 
-            String url = uploadFileToS3(file, fileName);
+                String fileName = userId + "/" + file.getOriginalFilename();
 
-            UserDoc saved = this.userDocRepository.save(userDoc);
+                userDoc.setFileUrl(fileName);
 
-            return UserDocResponseDTO.builder()
-                    .id(saved.getId())
-                    .userId(saved.getUserId())
-                    .categoryId(saved.getCategoryId())
-                    .documentName(saved.getDocumentName())
-                    .documentType(saved.getDocumentType())
-                    .fileUrl(saved.getFileUrl())
-                    .accessUrl(url)
-                    .build();
+                String url = uploadFileToS3(file, fileName);
+
+                UserDoc saved = this.userDocRepository.save(userDoc);
+
+                return UserDocResponseDTO.builder()
+                        .id(saved.getId())
+                        .userId(saved.getUserId())
+                        .categoryId(saved.getCategoryId())
+                        .documentName(saved.getDocumentName())
+                        .documentType(saved.getDocumentType())
+                        .fileUrl(saved.getFileUrl())
+                        .accessUrl(url)
+                        .build();
+            }
+
+            throw new InputException("Ja existe documento com esse nome");
         }
-
-        throw new InputException("Ja existe documento com esse nome");
+        throw new DocumentsUploadException("Limite de documentos atingido. Remova ou melhore seu plano!");
     }
 
     private String uploadFileToS3(MultipartFile file, String fileName) {
@@ -71,6 +84,29 @@ public class UserDocService {
             throw new RuntimeException(e);
         }
 
-       return s3Client.getUrl(bucketName, fileName).toString();
+        return s3Client.getUrl(bucketName, fileName).toString();
     }
+
+    public SignatureType getSignatureType() {
+        UserSignatureResponse signature = signatureClient.getSignature();
+        System.out.println(signature + ", signature");
+        return signature.getSignature();
+    }
+
+    private int calculateMaxDocs(SignatureType signatureType) {
+        return switch (signatureType) {
+            case MONTHLY -> 10;
+            case QUARTERLY -> 20;
+            case ANNUAL -> 30;
+        };
+
+    }
+
+    private boolean canUploadMoreDocs(int maxDocs, UUID userId) {
+        long docs = this.userDocRepository.countByUserId(userId);
+        System.out.println(maxDocs);
+        return docs < maxDocs;
+    }
+
+
 }
