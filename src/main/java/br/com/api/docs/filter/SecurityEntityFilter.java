@@ -29,7 +29,7 @@ public class SecurityEntityFilter extends OncePerRequestFilter {
             DecodedJWT decoded = this.jwtProvider.decode(token);
 
             request.setAttribute("user_id", decoded.getSubject());
-            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(decoded.getSubject(), null, null);
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(decoded.getSubject(), token, null);
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             filterChain.doFilter(request, response);
