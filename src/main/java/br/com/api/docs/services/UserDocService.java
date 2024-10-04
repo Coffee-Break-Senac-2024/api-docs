@@ -2,8 +2,8 @@ package br.com.api.docs.services;
 
 import br.com.api.docs.client.SignatureClient;
 import br.com.api.docs.domain.entities.UserDoc;
-import br.com.api.docs.domain.enums.SignatureType;
 import br.com.api.docs.dto.signature.UserSignatureResponse;
+import br.com.api.docs.dto.userdoc.ListUserDocResponseDTO;
 import br.com.api.docs.dto.userdoc.UserDocDownloadResponseDTO;
 import br.com.api.docs.dto.userdoc.UserDocResponseDTO;
 import br.com.api.docs.exceptions.DocumentsUploadException;
@@ -12,18 +12,18 @@ import br.com.api.docs.exceptions.NotFoundException;
 import br.com.api.docs.mapper.UserDocMapper;
 import br.com.api.docs.repositories.UserDocRepository;
 import br.com.api.docs.utils.UserDocUtils;
+import com.amazonaws.SdkClientException;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.model.*;
 import com.amazonaws.util.IOUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,12 +44,13 @@ public class UserDocService {
 
     private final UserDocUtils userDocUtils;
 
+    @Transactional(rollbackFor = Exception.class)
     public UserDocResponseDTO uploadFile(MultipartFile file, UUID categoryId, UUID userId, String documentName, String description) {
-        SignatureType signatureType = getSignatureType();
+        UserSignatureResponse userSignatureResponse = getSignatureType();
 
-        int maxDocs = userDocUtils.calculateMaxDocs(signatureType);
+        int maxDocs = userDocUtils.calculateMaxDocs(userSignatureResponse.getSignature());
 
-        if (userDocUtils.canUploadMoreDocs(maxDocs, userId)) {
+        if (userDocUtils.canUploadMoreDocs(maxDocs, userSignatureResponse.getDocumentCount())) {
             Optional<UserDoc> document = this.userDocRepository.findByDocumentNameAndUserIdAndCategoryId(documentName, userId, categoryId);
 
             if (document.isEmpty()) {
@@ -67,6 +68,9 @@ public class UserDocService {
                 String url = uploadFileToS3(file, fileName);
 
                 UserDoc saved = this.userDocRepository.save(userDoc);
+
+                int newDocumentCount = userSignatureResponse.getDocumentCount() + 1;
+                this.signatureClient.updateDocumentCount(newDocumentCount);
 
                 return userDocMapper.mapEntityToUserDocResponse(saved, url);
             }
@@ -90,10 +94,10 @@ public class UserDocService {
         return s3Client.getUrl(bucketName, fileName).toString();
     }
 
-    private SignatureType getSignatureType() {
+    private UserSignatureResponse getSignatureType() {
         UserSignatureResponse signature = signatureClient.getSignature();
         System.out.println(signature + ", signature");
-        return signature.getSignature();
+        return signature;
     }
 
     public UserDocDownloadResponseDTO downloadFile(UUID id) {
@@ -109,5 +113,37 @@ public class UserDocService {
         } catch (IOException e) {
             throw new RuntimeException("Erro ao baixar o arquivo do S3", e);
         }
+    }
+
+    public ListUserDocResponseDTO getDocumentsByCategoryId(UUID userId, UUID categoryId) {
+        List<UserDoc> documents = this.userDocRepository.findAllByUserIdAndCategoryId(userId, categoryId);
+
+        if (documents.isEmpty()) {
+            throw new NotFoundException("Nenhum documento cadastrado nessa categoria.");
+        }
+
+        List<UserDocResponseDTO> documentsResponse = documents.stream().map((document) -> UserDocResponseDTO.builder()
+                .id(document.getId())
+                .documentName(document.getDocumentName())
+                .description(document.getDescription())
+                .documentType(document.getDocumentType())
+                .build()).toList();
+
+        return ListUserDocResponseDTO.builder()
+                .documents(documentsResponse)
+                .build();
+    }
+
+    public void deleteFile(UUID id, UUID userId) {
+        UserDoc userDoc = this.userDocRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new NotFoundException("Documento não encontrado."));
+
+        try {
+            s3Client.deleteObject(new DeleteObjectRequest(bucketName, userDoc.getFileUrl()));
+        } catch (Exception e) {
+            throw new SdkClientException("Não foi possivel deletar o arquivo");
+        }
+
+        this.userDocRepository.deleteById(id);
     }
 }
