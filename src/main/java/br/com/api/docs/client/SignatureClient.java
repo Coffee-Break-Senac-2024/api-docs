@@ -1,14 +1,19 @@
 package br.com.api.docs.client;
 
+import br.com.api.docs.config.ClientConfiguration;
 import br.com.api.docs.dto.signature.UserSignatureResponse;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
 
-@FeignClient(name = "signature-client", url = "${signature.service.url}")
+import java.util.concurrent.CompletableFuture;
+
+@FeignClient(name = "signature-client", url = "${signature.service.url}", configuration = ClientConfiguration.class)
 public interface SignatureClient {
 
     @GetMapping("/signature")
     UserSignatureResponse getSignature();
 
+   @PatchMapping("/signature/update-count")
+   CompletableFuture<Void> updateDocumentCount(@RequestHeader("documentCount") int documentCount);
 }
