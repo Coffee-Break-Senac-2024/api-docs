@@ -1,5 +1,6 @@
 package br.com.api.docs.controllers;
 
+import br.com.api.docs.dto.userdoc.ListUserDocResponseDTO;
 import br.com.api.docs.dto.userdoc.UserDocDownloadResponseDTO;
 import br.com.api.docs.dto.userdoc.UserDocResponseDTO;
 import br.com.api.docs.services.UserDocService;
@@ -41,6 +42,19 @@ public class UserDocController {
         headers.setContentDispositionFormData("attachment", download.getDocumentName());
 
         return new ResponseEntity<>(download.getContent(), headers, HttpStatus.OK);
+    }
+
+    @GetMapping("/documents/{categoryId}")
+    public ResponseEntity<ListUserDocResponseDTO> getDocumentsByCategory(@PathVariable("categoryId") UUID categoryId, Principal principal) {
+        UUID userId = UUID.fromString(principal.getName());
+        return ResponseEntity.ok().body(userDocService.getDocumentsByCategoryId(userId, categoryId));
+    }
+
+    @DeleteMapping("/documents/{id}")
+    public ResponseEntity<Object> deleteDocument(@PathVariable("id") UUID id, Principal principal) {
+        UUID userId = UUID.fromString(principal.getName());
+        this.userDocService.deleteFile(id, userId);
+        return ResponseEntity.noContent().build();
     }
 
 }

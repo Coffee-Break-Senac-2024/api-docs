@@ -15,4 +15,5 @@ import java.time.LocalDateTime;
 public class UserSignatureResponse {
     public SignatureType signature;
     public LocalDateTime signedAt;
+    public int documentCount;
 }

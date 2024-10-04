@@ -14,6 +14,7 @@ public class UserDocMapper {
                 .userId(userDoc.getUserId())
                 .categoryId(userDoc.getCategoryId())
                 .documentName(userDoc.getDocumentName())
+                .description(userDoc.getDescription())
                 .documentType(userDoc.getDocumentType())
                 .fileUrl(userDoc.getFileUrl())
                 .accessUrl(accessUrl)
