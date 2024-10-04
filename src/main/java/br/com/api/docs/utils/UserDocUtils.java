@@ -22,10 +22,8 @@ public class UserDocUtils {
         };
     }
 
-    public boolean canUploadMoreDocs(int maxDocs, UUID userId) {
-        long docs = this.userDocRepository.countByUserId(userId);
-        System.out.println(maxDocs);
-        return docs < maxDocs;
+    public boolean canUploadMoreDocs(int maxDocs, int documentCount) {
+        return documentCount < maxDocs;
     }
 
 }
