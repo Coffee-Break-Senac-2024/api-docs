@@ -80,7 +80,7 @@ public class UserDocService {
         throw new DocumentsUploadException("Limite de documentos atingido. Remova ou melhore seu plano!");
     }
 
-    private String uploadFileToS3(MultipartFile file, String fileName) {
+    public String uploadFileToS3(MultipartFile file, String fileName) {
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentLength(file.getSize());
         metadata.setContentType(file.getContentType());
