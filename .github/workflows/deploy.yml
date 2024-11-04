@@ -74,5 +74,5 @@ jobs:
               -e S3_SECRETACCESSKEY="${{ secrets.S3_SECRETACCESSKEY }}" \
               -e APPLICATION_BUCKET_NAME="${{ secrets.APPLICATION_BUCKET_NAME }}" \
               -e SIGNATURE_SERVICE_URL="${{ secrets.SIGNATURE_SERVICE_URL }}" \
-               bielxrd/docsapi:latest
+               bielxrd/docs-api:latest
           EOF
