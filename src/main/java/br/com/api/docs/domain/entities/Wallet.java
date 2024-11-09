@@ -30,11 +30,14 @@ public class Wallet {
     @Column(name = "file_url", nullable = false)
     private String fileUrl;
 
-    @Column(name = "original_hash", nullable = true, unique = true)
+    @Column(name = "original_hash", nullable = true, unique = true, length = 512)
     private String hash;
 
-    @Column(name = "rsa_hash", nullable = true, unique = true)
+    @Column(name = "rsa_hash", nullable = true, unique = true, columnDefinition = "TEXT")
     private String hashRSA;
+
+    @Column(name = "public_key", nullable = true, unique = true, columnDefinition = "TEXT")
+    private String publicKey;
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;

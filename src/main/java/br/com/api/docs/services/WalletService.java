@@ -2,6 +2,8 @@ package br.com.api.docs.services;
 
 import br.com.api.docs.domain.entities.Wallet;
 import br.com.api.docs.domain.enums.WalletDocumentType;
+import br.com.api.docs.dto.hash.HashResponseDTO;
+import br.com.api.docs.dto.hash.WalletHashResponseDTO;
 import br.com.api.docs.dto.wallet.WalletDownloadResponseDTO;
 import br.com.api.docs.dto.wallet.WalletListResponseDTO;
 import br.com.api.docs.dto.wallet.WalletResponseDTO;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,6 +36,8 @@ public class WalletService {
 
     private final UserDocService userDocService;
 
+    private final HashService hashService;
+
     private final AmazonS3 s3Client;
 
     public WalletResponseDTO saveDocumentToWallet(MultipartFile file, UUID userId, String documentName, WalletDocumentType walletType) {
@@ -42,13 +47,26 @@ public class WalletService {
             throw new InputException("Você já possui "+walletType.name() + " cadastrado.");
         }
 
+        HashResponseDTO hashResponseDTO = null;
+
+        try {
+            byte[] fileBytes = file.getBytes();
+
+            hashResponseDTO = hashService.generateHash(fileBytes);
+        } catch (IOException e) {
+            throw new RuntimeException("Erro ao ler o arquivo.", e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+
         Wallet wallet = new Wallet();
         wallet.setDocumentType(walletType);
         wallet.setDocumentName(documentName);
         wallet.setDocumentFileType(file.getContentType());
-        wallet.setHash(UUID.randomUUID().toString());
-        wallet.setHashRSA(UUID.randomUUID().toString());
         wallet.setUserId(userId);
+        wallet.setHash(hashResponseDTO.getHash());
+        wallet.setHashRSA(hashResponseDTO.getHashRsa());
+        wallet.setPublicKey(hashResponseDTO.getPublicKey());
 
         String fileUrl = "wallet/" +userId + "/" + file.getOriginalFilename();
 
@@ -103,5 +121,15 @@ public class WalletService {
         } catch (IOException e) {
             throw new RuntimeException("Erro ao baixar o arquivo do S3", e);
         }
+    }
+    public WalletHashResponseDTO getWalletToValidation(UUID id) {
+        Wallet walletDocument = this.walletRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Documento nao encontrado para validacao"));
+
+        return WalletHashResponseDTO.builder()
+                .documentName(walletDocument.getDocumentName())
+                .hashRsa(walletDocument.getHashRSA())
+                .publicKey(walletDocument.getPublicKey())
+                .build();
     }
 }

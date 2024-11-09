@@ -1,6 +1,7 @@
 package br.com.api.docs.controllers;
 
 import br.com.api.docs.domain.enums.WalletDocumentType;
+import br.com.api.docs.dto.hash.WalletHashResponseDTO;
 import br.com.api.docs.dto.wallet.WalletDownloadResponseDTO;
 import br.com.api.docs.dto.wallet.WalletListResponseDTO;
 import br.com.api.docs.dto.wallet.WalletResponseDTO;
@@ -47,6 +48,11 @@ public class WalletController {
         headers.setContentDispositionFormData("attachment", download.getDocumentName());
 
         return new ResponseEntity<>(download.getContent(), headers, HttpStatus.OK);
+    }
+
+    @GetMapping("/{id}/verify")
+    public ResponseEntity<WalletHashResponseDTO> verifyFile(@PathVariable("id") UUID id) {
+        return ResponseEntity.ok().body(walletService.getWalletToValidation(id));
     }
 
 }
