@@ -88,7 +88,7 @@ public class UserDocService {
         try {
             s3Client.putObject(new PutObjectRequest(bucketName, fileName, file.getInputStream(), metadata));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new DocumentsUploadException("Documento falhou no envio para o bucket.");
         }
 
         return s3Client.getUrl(bucketName, fileName).toString();

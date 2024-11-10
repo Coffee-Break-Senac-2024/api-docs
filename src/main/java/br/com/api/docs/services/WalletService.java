@@ -7,6 +7,8 @@ import br.com.api.docs.dto.hash.WalletHashResponseDTO;
 import br.com.api.docs.dto.wallet.WalletDownloadResponseDTO;
 import br.com.api.docs.dto.wallet.WalletListResponseDTO;
 import br.com.api.docs.dto.wallet.WalletResponseDTO;
+import br.com.api.docs.exceptions.DocumentDownloadException;
+import br.com.api.docs.exceptions.DocumentsUploadException;
 import br.com.api.docs.exceptions.InputException;
 import br.com.api.docs.exceptions.NotFoundException;
 import br.com.api.docs.repositories.WalletRepository;
@@ -17,6 +19,7 @@ import com.amazonaws.util.IOUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -40,6 +43,7 @@ public class WalletService {
 
     private final AmazonS3 s3Client;
 
+    @Transactional(rollbackFor = Exception.class)
     public WalletResponseDTO saveDocumentToWallet(MultipartFile file, UUID userId, String documentName, WalletDocumentType walletType) {
         Optional<Wallet> walletFound = this.walletRepository.findByUserIdAndDocumentType(userId, walletType);
 
@@ -54,9 +58,9 @@ public class WalletService {
 
             hashResponseDTO = hashService.generateHash(fileBytes);
         } catch (IOException e) {
-            throw new RuntimeException("Erro ao ler o arquivo.", e);
+            throw new DocumentsUploadException("Erro ao ler o arquivo para o hash.");
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
+            throw new DocumentsUploadException("Erro ao criar hash");
         }
 
         Wallet wallet = new Wallet();
@@ -119,9 +123,10 @@ public class WalletService {
                    .documentType(wallet.getDocumentFileType())
                    .build();
         } catch (IOException e) {
-            throw new RuntimeException("Erro ao baixar o arquivo do S3", e);
+            throw new DocumentDownloadException("Erro ao baixar o arquivo do S3");
         }
     }
+
     public WalletHashResponseDTO getWalletToValidation(UUID id) {
         Wallet walletDocument = this.walletRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Documento nao encontrado para validacao"));

@@ -1,8 +1,7 @@
 package br.com.api.docs.services;
 
 import br.com.api.docs.dto.hash.HashResponseDTO;
-import br.com.api.docs.repositories.UserDocRepository;
-import lombok.RequiredArgsConstructor;
+import br.com.api.docs.exceptions.DocumentsUploadException;
 import org.springframework.stereotype.Service;
 
 import java.security.*;
@@ -40,7 +39,7 @@ public class HashService {
 
             return hexString.toString();
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
+            throw new DocumentsUploadException("Erro ao gerar HASH");
         }
     }
 
@@ -58,7 +57,7 @@ public class HashService {
             byte[] signedBytes = signature.sign();
             return Base64.getEncoder().encodeToString(signedBytes);
         } catch (Exception e) {
-            throw new RuntimeException("Erro tentando assinar hash");
+            throw new DocumentsUploadException("Erro ao tentar assinar HASH");
         }
     }
 }
