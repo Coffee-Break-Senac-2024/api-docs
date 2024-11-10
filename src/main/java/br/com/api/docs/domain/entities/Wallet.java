@@ -18,7 +18,7 @@ public class Wallet {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "document_type", nullable = false, unique = true)
+    @Column(name = "document_type", nullable = false)
     private WalletDocumentType documentType;
 
     @Column(name = "document_name", nullable = false)
