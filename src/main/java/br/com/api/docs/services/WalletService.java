@@ -133,6 +133,7 @@ public class WalletService {
 
         return WalletHashResponseDTO.builder()
                 .documentName(walletDocument.getDocumentName())
+                .hash(walletDocument.getHash())
                 .hashRsa(walletDocument.getHashRSA())
                 .publicKey(walletDocument.getPublicKey())
                 .build();

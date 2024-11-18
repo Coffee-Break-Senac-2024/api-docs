@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class WalletHashResponseDTO {
     private String documentName;
+    private String hash;
     private String hashRsa;
     private String publicKey;
 }
